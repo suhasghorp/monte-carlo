@@ -20,4 +20,6 @@ Rust Monte-Carlo Option Pricer
 
 <b>Parallel Price is 28.488221293384285, took 613.905618ms</b>
 
+<b>Parallel Price is 28.488221293384285, took 613.905618ms</b>
+
 

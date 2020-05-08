@@ -73,10 +73,7 @@ impl MCEuroOptPricer {
 
         let discounted_payoffs = (0..self.num_scenarios).into_par_iter().map( 
             |_| {           
-                let path : Vec<f64> = self.epg.get_path();
-                let terminal_price = path.last().unwrap_or_else(|| {eprintln!("Price path was not generated"); process::exit(-1);});
-                let payoff:f64 = self.payoff(&self.porc, &terminal_price,&self.strike);
-                self.disc_factor() * payoff
+                self.get_one_discounted_payoff()
                 }
         ).collect::<Vec<f64>>();
 

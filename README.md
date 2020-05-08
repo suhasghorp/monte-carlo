@@ -14,12 +14,14 @@ Rust Monte-Carlo Option Pricer
     
      Running `target/release/monte-carlo`
      
-<b>Non-parallel Price is 28.48201998899803, took 2.292222318s</b>
+<b>Non-parallel Option Price is 28.41012259095407, took 22.448422604s
 
-<b>Number of logical cores is 4</b>
+Number of logical cores is 4
 
-<b>Parallel Price is 28.488221293384285, took 613.905618ms</b>
+Number of Scenarios: 1,000,000
 
-<b>Parallel Price is 28.488221293384285, took 613.905618ms</b>
+Parallel Option Price is 28.4264239304692, took 5.584623065s</b>
+
+
 
 

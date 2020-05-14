@@ -1,14 +1,26 @@
 
 
 use crate::epg;
-use std::process;
 use rayon::prelude::*;
+use std::error::Error;
+use std::fmt;
 
 #[allow(dead_code)]
 pub enum OptionType {
     Call,
     Put,
 }
+
+#[derive(Debug)]
+struct PricerError(String);
+
+impl fmt::Display for PricerError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "There is a pricing error: {}", self.0)
+    }
+}
+
+impl Error for PricerError {}
 
 #[allow(dead_code)]
 pub struct MCEuroOptPricer {
@@ -48,10 +60,10 @@ impl MCEuroOptPricer {
     fn disc_factor(&self) -> f64 {
         (-self.risk_free_rate * self.time_to_expiry).exp()
     }
-    pub fn compute_price(&self) -> f64 {
+    pub fn compute_price(&self) -> Result<f64, Box<dyn std::error::Error + Send + Sync>> {
         match self.run_parallel {
-            true => {self.compute_price_parallel()},
-            false => {self.compute_price_non_parallel()}
+            true => {Ok(self.compute_price_parallel()?)},
+            false => {Ok(self.compute_price_non_parallel()?)}
         }
     }
 
@@ -62,33 +74,49 @@ impl MCEuroOptPricer {
         }
     }
 
-    fn get_one_discounted_payoff(&self) -> f64 {
-        let path : Vec<f64> = self.epg.get_path();
-        let terminal_price = path.last().unwrap_or_else(|| {eprintln!("Price path was not generated"); process::exit(-1);});
+    fn get_one_discounted_payoff(&self) -> Result<f64, Box<dyn std::error::Error + Send>> {
+        //let path = self.epg.get_path()?;
+        let path = match self.epg.get_path(){
+            Ok(p) => p,
+            Err(error) => panic!("Problem generating path: {:?}", error)
+        };
+        let terminal_price = path.last().unwrap();
         let payoff:f64 = self.payoff(&self.porc, &terminal_price,&self.strike);
-        self.disc_factor() * payoff
+        Ok(self.disc_factor() * payoff)
+        
     }
 
-    fn compute_price_parallel(&self) -> f64 {
+    fn compute_price_parallel(&self) -> Result<f64, Box<dyn Error + Send + Sync>>  {
 
         let discounted_payoffs = (0..self.num_scenarios).into_par_iter().map( 
             |_| {           
-                self.get_one_discounted_payoff()
+                    match self.get_one_discounted_payoff() {
+                        Ok(payoff) => {Ok(payoff)},
+                        Err(e) => Err(e)
+                    }
                 }
-        ).collect::<Vec<f64>>();
+        ).collect::<Result<Vec<_>, _>>();
 
-        self.quantity as f64 * (1.0/self.num_scenarios as f64) * discounted_payoffs.into_iter().sum::<f64>()
+        match discounted_payoffs {
+            Ok(v) => Ok(self.quantity as f64 * (1.0/self.num_scenarios as f64) * v.into_iter().sum::<f64>()),
+            Err(_e) => Err(format!("There was an error in calculating Parallel Discounted Payoffs.{}",_e).into())
+        }
+        
     }
 
-    fn compute_price_non_parallel(&self) -> f64 {
+    fn compute_price_non_parallel(&self) -> Result<f64, Box<dyn std::error::Error + Send + Sync>> {
 
         let discounted_payoffs = (0..self.num_scenarios).into_iter().map( 
             |_| {           
                 self.get_one_discounted_payoff()
                 }
-        ).collect::<Vec<f64>>();
-
-        self.quantity as f64 * (1.0/self.num_scenarios as f64) * discounted_payoffs.into_iter().sum::<f64>()
+        ).collect::<Result<Vec<_>, _>>();
+            
+        match discounted_payoffs {
+            Ok(v) => Ok(self.quantity as f64 * (1.0/self.num_scenarios as f64) * v.into_iter().sum::<f64>()),
+            Err(_e) => Err(From::from("There was an error in calculating Non-Parallel Discounted Payoffs."))
+        }
+               
     }
 
 }

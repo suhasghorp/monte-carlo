@@ -88,17 +88,17 @@ impl MCEuroOptPricer {
 
     fn compute_price_parallel(&self) -> Result<f64, Box<dyn Error + Send + Sync>>  {
 
-        let discounted_payoffs = (0..self.num_scenarios).into_par_iter().map( 
+        let sum_discounted_payoffs = (0..self.num_scenarios).into_par_iter().map( 
             |_| {           
                     match self.get_one_discounted_payoff() {
                         Ok(payoff) => {Ok(payoff)},
                         Err(e) => Err(e)
                     }
                 }
-        ).collect::<Result<Vec<_>, _>>();
+        ).sum::<Result<f64, _>>();
 
-        match discounted_payoffs {
-            Ok(v) => Ok(self.quantity as f64 * (1.0/self.num_scenarios as f64) * v.into_iter().sum::<f64>()),
+        match sum_discounted_payoffs {
+            Ok(v) => Ok(self.quantity as f64 * (1.0/self.num_scenarios as f64) * v),
             Err(_e) => Err(format!("There was an error in calculating Parallel Discounted Payoffs.{}",_e).into())
         }
         
@@ -106,14 +106,17 @@ impl MCEuroOptPricer {
 
     fn compute_price_non_parallel(&self) -> Result<f64, Box<dyn std::error::Error + Send + Sync>> {
 
-        let discounted_payoffs = (0..self.num_scenarios).into_iter().map( 
-            |_| {           
-                self.get_one_discounted_payoff()
+        let sum_discounted_payoffs = (0..self.num_scenarios).into_iter().map( 
+               |_| {           
+                    match self.get_one_discounted_payoff() {
+                        Ok(payoff) => {Ok(payoff)},
+                        Err(e) => Err(e)
+                    }
                 }
-        ).collect::<Result<Vec<_>, _>>();
+        ).sum::<Result<f64, _>>();
             
-        match discounted_payoffs {
-            Ok(v) => Ok(self.quantity as f64 * (1.0/self.num_scenarios as f64) * v.into_iter().sum::<f64>()),
+        match sum_discounted_payoffs {
+            Ok(v) => Ok(self.quantity as f64 * (1.0/self.num_scenarios as f64) * v),
             Err(_e) => Err(From::from("There was an error in calculating Non-Parallel Discounted Payoffs."))
         }
                
